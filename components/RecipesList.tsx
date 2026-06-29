@@ -2,42 +2,56 @@
 
 import { ForkifySearchResponse, RecipeSearchResult } from "@/types/recipesApi";
 import Image from "next/image";
-import { useState } from "react";
+import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
-interface RecipesListProps {
-  recipes: RecipeSearchResult[];
-}
+const RecipesList = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-const RecipesList = ({ recipes }: RecipesListProps) => {
-  const [recipeList, setRecipeList] = useState(recipes);
-  const [searchQuery, setSearchQuery] = useState("Pizza");
-  const [headerTitle, setHeaderTitle] = useState(searchQuery);
+  const urlSearchQuery = searchParams.get("search") ?? "Pizza";
+  const [searchQuery, setSearchQuery] = useState(urlSearchQuery);
+
+  const [recipeList, setRecipeList] = useState<RecipeSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
 
-    setLoading(true);
-
-    try {
-      const response = await fetch(
-        `https://forkify-api.jonas.io/api/v2/recipes?search=${searchQuery}`,
-      );
-      const result = (await response.json()) as ForkifySearchResponse;
-      setRecipeList(result.data.recipes);
-      setHeaderTitle(searchQuery);
-    } catch (error) {
-      console.log("Fetch error:", error);
-    } finally {
-      setLoading(false);
-    }
+    router.push(`/recipes?search=${encodeURIComponent(searchQuery)}`);
   };
+
+  useEffect(() => {
+    const currentParam = searchParams.get("search");
+
+    async function fetchRecipes() {
+      setLoading(true);
+
+      try {
+        const response = await fetch(
+          `https://forkify-api.jonas.io/api/v2/recipes?search=${currentParam}`,
+        );
+        const result = (await response.json()) as ForkifySearchResponse;
+        setRecipeList(result.data.recipes);
+      } catch (error) {
+        console.log("Fetch error:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (currentParam) {
+      fetchRecipes();
+    } else {
+    }
+  }, [searchParams]);
 
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-zinc-800 tracking-tight">
-          {headerTitle} Recipes
+          {urlSearchQuery} Recipes
         </h1>
 
         <section>
@@ -57,8 +71,10 @@ const RecipesList = ({ recipes }: RecipesListProps) => {
         </section>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {recipeList.length == 0 && <p>There are no recipes to find.</p>}
-        {recipeList.map((recipe) => (
+        {!loading && recipeList?.length == 0 && (
+          <p>There are no recipes to find.</p>
+        )}
+        {recipeList?.map((recipe) => (
           <div
             key={recipe.id}
             className="group flex flex-col bg-white overflow-hidden"
@@ -76,9 +92,12 @@ const RecipesList = ({ recipes }: RecipesListProps) => {
               <span className="text-xs uppercase tracking-wider text-zinc-400 font-medium mb-1">
                 {recipe.publisher}
               </span>
-              <h3 className="text-base font-semibold text-zinc-800 line-clamp-2 leading-snug group-hover:text-zinc-600 transition-colors">
+              <Link
+                href={`/recipes/${recipe.id}`}
+                className="text-base font-semibold text-zinc-800 line-clamp-2 leading-snug group-hover:text-zinc-600 transition-colors"
+              >
                 {recipe.title}
-              </h3>
+              </Link>
             </div>
           </div>
         ))}
